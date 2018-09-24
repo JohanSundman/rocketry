@@ -1,0 +1,147 @@
+<!doctype html>
+<head>
+	<title>Rocket</title>
+	<style>
+		html, body{
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+		}
+
+		#rocket{
+			position: absolute;
+			background-color: #000;
+		}
+	</style>
+</head>
+<body>
+
+<div id="rocket"></div>
+
+<script>
+class rocket{
+	constructor(height, diameter, mass, thrust){
+		// Specifications
+		this.height = height; // [m] size
+		this.diameter = diameter; // [m] size
+		this.mass = mass; // [kg]
+		this.thrust = thrust; // [N]
+		this.thrustVectoringAngle = 0; // [rad]
+		this.centerofmass = this.height/2.5;
+
+		// Acceleration
+		this.acceleration = {
+			x: 0, // [m/s^2]
+			y: 0, // [m/s^2]
+			linear: 0, // [m/s^2]
+			tangental: 0 // [m/s^2]
+		}
+
+		// Velocity
+		this.velocity = {
+			x: 0, // [m/s]
+			y: 0, // [m/s]
+			tangental: 0,
+			angular: 0 // [rad/s]
+		}
+
+		this.position = {
+			x: 0, // [m]
+			y: 0, // [m]
+			angle: Math.PI/2 // [rad] vertical initially
+		}
+
+		// Controls
+		this.thrustFactor = 0; // Thrust factor
+
+		// Input
+		var self = this; // Save instance of class rocket so it won't be overwritten by the event
+		window.addEventListener("keydown", function(e){
+			if(e.keyCode == 32){ // Space
+				self.thrustFactor = 1; // Thrust factor
+			}
+			if(e.keyCode == 65){ // a, left
+				self.thrustVectoringAngle = -2*Math.PI/60;
+			}
+			if(e.keyCode == 68){ // d, right
+				self.thrustVectoringAngle = 2*Math.PI/60;
+			}
+		});
+		window.addEventListener("keyup", function(e){
+			if(e.keyCode == 32){ // Space
+				self.thrustFactor = 0; // Thrust factor
+			}
+			if(e.keyCode == 65){ // a, left
+				self.thrustVectoringAngle = 0;
+			}
+			if(e.keyCode == 68){ // d, right
+				self.thrustVectoringAngle = 0;
+			}
+		});
+
+	}
+
+	update(dt){ // Physics update, dt [s]
+
+		/* -- Acceleration -- */
+		// Acceleration relative to rocket orientation, from the thrust
+		this.acceleration.linear = this.thrust/this.mass * Math.sin(Math.PI/2 + this.thrustVectoringAngle) * this.thrustFactor;
+		this.acceleration.tangental = this.thrust/this.mass * Math.cos(Math.PI/2 + this.thrustVectoringAngle) * this.thrustFactor;
+
+		// Translate linear acceleration into x and y coordinates
+		this.acceleration.y = this.acceleration.linear * Math.sin(this.position.angle) - 9.82;
+		this.acceleration.x = this.acceleration.linear * Math.cos(this.position.angle);
+
+		/* -- Velocity -- */
+		// Update velocity based on the linear acceleration
+		this.velocity.y += this.acceleration.y * dt;
+		this.velocity.x += this.acceleration.x * dt;
+
+		// Update angular velocity based on tangental acceleration and velocity
+		// Velocity relative to rocket
+		this.velocity.tangental += this.acceleration.tangental * dt;
+		this.velocity.angular = Math.sqrt(Math.pow(this.velocity.tangental,2)/Math.pow(this.centerofmass,2)); // angularV = sqrt( v^2/r^2 )
+		this.velocity.angular = this.velocity.tangental < 0 ? -this.velocity.angular : this.velocity.angular;
+
+		/* -- Distance/position -- */
+		// Update distance based on velocity
+		this.position.y += this.velocity.y * dt;
+		this.position.x += this.velocity.x * dt;
+
+		// Update angle based on angular velocity
+		this.position.angle += this.velocity.angular * dt;
+	}
+
+	updateVisuals(){ // Temporarily half baked crap, which simply works good enough to render
+		var sizeScale = 1;
+
+		document.getElementById("rocket").style.width = this.diameter*sizeScale + "px";
+		document.getElementById("rocket").style.height = this.height*sizeScale + "px";
+
+		document.getElementById("rocket").style.bottom = this.position.y*sizeScale + "px";
+		document.getElementById("rocket").style.left = (window.innerWidth/2 + this.position.x*sizeScale)+"px";
+
+		document.getElementById("rocket").style.transformOrigin = this.diameter*sizeScale/2 + "px " + this.centerofmass*sizeScale + "px";
+		document.getElementById("rocket").style.transform = "rotate("+(-this.position.angle-Math.PI/2)+"rad)";
+	}
+}
+
+// Famous rocket
+var falcon9 = new rocket(70, 3.7, 587000 + 22800, 7600000);
+
+// Main loop
+var t = new Date().getTime(), dt, _t;
+setInterval(function(){
+	// Time
+	_t = new Date().getTime();
+	dt = (_t - t) / 1000; // [s] Delta time = t2 - t1
+	t = _t;
+
+	// Logic
+	falcon9.update(dt);
+	falcon9.updateVisuals();
+}, 1000/60);
+</script>
+</body>
